@@ -152,7 +152,7 @@
 
                 if (attributes) {
 
-                    let localStorageState = await getStateFromLocalStorage(this.tableToolbar.resourceName)
+                    let localStorageState = await getStateFromLocalStorage(this.tableToolbar.resourceName, this.tableToolbar.actionQueryString?.viaRelationship)
                     if (localStorageState && this.isDifferentState(attributes, localStorageState)) {
                         localStorageState = attributes
                     }

@@ -13,9 +13,9 @@ export function decode(state) {
     return state ? JSON.parse(decodeURIComponent(escape(atob(state)))) : null
 }
 
-export async function getStateFromLocalStorage(cacheKey) {
+export async function getStateFromLocalStorage(cacheKey, viaRelationship = null) {
 
-    const value = localStorage.getItem(await generateCacheKey(cacheKey))
+    const value = localStorage.getItem(await generateCacheKey(cacheKey, viaRelationship))
 
     if (value === null) {
         return true
@@ -25,18 +25,28 @@ export async function getStateFromLocalStorage(cacheKey) {
 
 }
 
-export async function saveStateToLocalStorage(state, cacheKey) {
-    localStorage.setItem(await generateCacheKey(cacheKey), encode(state))
+export async function saveStateToLocalStorage(state, cacheKey, viaRelationship = null) {
+    localStorage.setItem(await generateCacheKey(cacheKey, viaRelationship), encode(state))
 }
 
 
-export async function generateCacheKey(cacheKey) {
+// viaRelationship is part of the key because the same resource's field list
+// can have a different shape depending on context — several Product fields
+// use showOnIndex(fn($request) => !$request->viaRelationship), so viewing
+// Products directly vs. via a Supplier's relationship tab yields different
+// field positions. Without this, a selection cached from one context gets
+// wrongly reused in the other, where positions no longer line up — showing
+// duplicate/wrong columns. Omitted (via filter(Boolean)) when not viewing
+// via a relationship, so existing cache keys for direct resource views
+// don't change.
+export async function generateCacheKey(cacheKey, viaRelationship = null) {
     return [
         'column-toggler',
         cacheKey,
+        viaRelationship,
         (await Nova.$router.decryptHistory()).props?.lens,
         Nova.config('column_toggler').enable_sorting,
-    ].join('/')
+    ].filter(Boolean).join('/')
 }
 
 export function registerMixin(component) {
@@ -55,7 +65,7 @@ export function registerMixin(component) {
             Nova.$off(this.columnTogglerEventKey, this.columnTogglerOnStateChange)
         },
         async beforeMount() {
-            this.columnTogglerState = await  getStateFromLocalStorage(this.resourceName)
+            this.columnTogglerState = await  getStateFromLocalStorage(this.resourceName, this.actionQueryString?.viaRelationship)
         },
         data() {
             return {
@@ -69,7 +79,7 @@ export function registerMixin(component) {
 
                 if (isEqual(state, currentState) === false) {
 
-                    await saveStateToLocalStorage(state, this.resourceName)
+                    await saveStateToLocalStorage(state, this.resourceName, this.actionQueryString?.viaRelationship)
 
                     this.columnTogglerState = cloneDeep(state)
 
